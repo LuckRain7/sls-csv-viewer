@@ -104,8 +104,7 @@ function checkDataForError(dataList) {
         .map((r) => r.logIndex ?? "(无)");
 }
 
-async function onChooseFile(e) {
-    const file = e.target.files?.[0];
+async function parseFile(file) {
     records.value = [];
     missingColumns.value = [];
     errorMsg.value = "";
@@ -141,13 +140,51 @@ async function onChooseFile(e) {
         errorMsg.value = err instanceof Error ? err.message : "解析失败";
     } finally {
         loading.value = false;
-        e.target.value = "";
+    }
+}
+
+async function onChooseFile(e) {
+    const file = e.target.files?.[0];
+    await parseFile(file);
+    e.target.value = "";
+}
+
+const dragging = ref(false);
+let dragLeaveTimer = null;
+
+function onDragOver(e) {
+    if (records.value.length) return;
+    e.preventDefault();
+    clearTimeout(dragLeaveTimer);
+    dragging.value = true;
+}
+
+function onDragLeave() {
+    dragLeaveTimer = setTimeout(() => {
+        dragging.value = false;
+    }, 50);
+}
+
+function onDrop(e) {
+    if (records.value.length) return;
+    e.preventDefault();
+    dragging.value = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (file && /\.(csv|txt)$/i.test(file.name)) {
+        parseFile(file);
+    } else if (file) {
+        errorMsg.value = "请拖入 CSV 文件";
     }
 }
 </script>
 
 <template>
-    <div class="page">
+    <div
+        class="page"
+        @dragover="onDragOver"
+        @dragleave="onDragLeave"
+        @drop="onDrop"
+    >
         <header class="header">
             <div class="headerLeft">
                 <h1 class="title">CSV 解析（data / logIndex / time）</h1>
@@ -180,6 +217,10 @@ async function onChooseFile(e) {
                 <span class="fileName" :title="selectedFileName">
                     {{ selectedFileName || "未选择文件" }}
                 </span>
+            </div>
+
+            <div v-if="!records.length" class="dropHint">
+                或将 CSV 文件拖拽到此页面
             </div>
 
             <div class="meta">
@@ -268,224 +309,14 @@ async function onChooseFile(e) {
             v-model:hideRequestData="hideRequestData"
             @close="closeSettings"
         />
+
+        <div v-if="dragging" class="dropOverlay">
+            <div class="dropOverlayInner">
+                <span class="dropOverlayIcon">&#128206;</span>
+                <span>释放以解析 CSV 文件</span>
+            </div>
+        </div>
     </div>
 </template>
 
-<style scoped>
-.page {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 28px 16px 40px;
-}
-
-.header {
-    margin-bottom: 16px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.headerLeft {
-    min-width: 0;
-}
-
-.headerSettingsBtn {
-    margin-top: 2px;
-}
-
-.title {
-    font-size: 20px;
-    margin: 0 0 6px;
-}
-
-.desc {
-    margin: 0;
-    color: #6b7280;
-    font-size: 13px;
-}
-
-.panel {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 14px;
-}
-
-.file {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.filePick {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-}
-
-.fileBtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 34px;
-    padding: 0 12px;
-    border-radius: 8px;
-    border: 1px solid #111827;
-    background: #111827;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.filePickInput {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-}
-
-.fileName {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-    color: #374151;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.meta {
-    margin-top: 10px;
-    font-size: 13px;
-    color: #374151;
-}
-
-.error {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
-    font-size: 13px;
-}
-
-.warn {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    color: #92400e;
-    font-size: 13px;
-}
-
-.tableWrap {
-    margin-top: 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-th,
-td {
-    border-bottom: 1px solid #e5e7eb;
-    padding: 10px 10px;
-    vertical-align: top;
-    font-size: 12px;
-}
-
-tbody tr.isHighlighted > td {
-    background: #fffbeb;
-}
-
-thead th {
-    background: #f9fafb;
-    font-weight: 600;
-    text-align: left;
-}
-
-.colTime {
-    width: 170px;
-}
-
-.colIndex {
-    width: 90px;
-}
-
-.colOp {
-    width: 90px;
-}
-
-.mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        "Liberation Mono", "Courier New", monospace;
-    white-space: nowrap;
-}
-
-.dataCell {
-    padding: 0;
-}
-
-.dataPre {
-    margin: 0;
-    padding: 10px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        "Liberation Mono", "Courier New", monospace;
-    line-height: 1.4;
-    /* max-height: calc(1.4em * 4 + 20px); */
-    overflow: auto;
-}
-
-.opCell {
-    white-space: nowrap;
-}
-
-.opBtn {
-    height: 26px;
-    padding: 0 10px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    color: #111827;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.opBtn.danger {
-    border-color: #fecaca;
-    color: #991b1b;
-}
-
-.opBtn.warn {
-    border-color: #fde68a;
-    color: #92400e;
-}
-
-.opBtn.icon {
-    width: 26px;
-    padding: 0;
-    line-height: 1;
-    font-size: 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.opBtn.icon .opIcon {
-    width: 18px;
-    height: 18px;
-    display: block;
-}
-</style>
+<style scoped src="./App.css"></style>
