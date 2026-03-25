@@ -5,6 +5,7 @@ import JsonModal from "./components/JsonModal.vue";
 import OpIcon from "./components/OpIcon.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import ErrorPanel from "./components/ErrorPanel.vue";
+import ExportBar from "./components/ExportBar.vue";
 
 const selectedFileName = ref("");
 const loading = ref(false);
@@ -185,6 +186,8 @@ async function onChooseFile(e) {
                 <span v-if="loading">解析中…</span>
                 <span v-else-if="rowCount">已解析 {{ rowCount }} 行</span>
             </div>
+
+            <ExportBar v-if="records.length" :records="records" />
 
             <div v-if="errorMsg" class="error">{{ errorMsg }}</div>
             <div v-else-if="missingColumns.length" class="warn">
